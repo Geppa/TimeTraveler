@@ -37,7 +37,11 @@
 </nav>
 
 <header class="hero wrap" id="top">
-  <span class="venue">NeurIPS 2026, Sydney</span>
+  <!-- NeurIPS 2026 logo: drop the official file at static/images/neurips2026_logo.png (shows automatically; hidden if missing) -->
+  <div class="venue-row">
+    <img class="venue-logo" src="static/images/neurips2026_logo.png" alt="NeurIPS 2026" onerror="this.remove()">
+    <span class="venue">NeurIPS 2026, Sydney</span>
+  </div>
 
   <h1>
     <span class="name duo-text">TimeTraveler</span>

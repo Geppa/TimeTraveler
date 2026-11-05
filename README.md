@@ -10,5 +10,5 @@ Minkuk Kim (Kyung Hee University), Junho Kim (University of Illinois Urbana-Cham
 
 - `index.html`: the page. The demo cases live in the `CASES` array near the bottom.
 - `static/css/style.css`: theme. Kyung Hee Red `#A40F16`, Illini Orange `#FF5F05`, Illini Blue `#13294B`.
-- `static/images/`: figures exported from the paper; demo frames are under `static/images/cases/`.
+- `static/images/`: figures exported from the paper; demo frames are under `static/images/cases/`. Put the official NeurIPS 2026 logo at `static/images/neurips2026_logo.png` and it appears next to the venue badge.
 - `static/pdf/`: paper PDF (add it here once public, then re-enable the Paper button).

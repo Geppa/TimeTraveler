@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TimeTraveler: Temporal Strategy Planning with Time Dictionary for Streaming Video Understanding</title>
+  <meta name="description" content="TimeTraveler (NeurIPS 2026) is a training-free framework for streaming video QA. It records every observed moment as a structured, timestamped caption in a Time Dictionary, and plans for each question whether to look back into the past, read the current scene, or wait for the future.">
+  <meta name="keywords" content="TimeTraveler, Streaming Video Understanding, Streaming VQA, Online Video QA, Time Dictionary, Temporal Strategy Planning, MLLM, NeurIPS 2026">
+
+  <meta property="og:title" content="TimeTraveler: Temporal Strategy Planning with Time Dictionary for Streaming Video Understanding">
+  <meta property="og:description" content="Look back, look now, or look ahead. A training-free streaming video QA framework with a Time Dictionary and a Temporal Strategy Planner. NeurIPS 2026.">
+  <meta property="og:image" content="https://geppa.github.io/TimeTraveler/static/images/teaser.jpg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏳</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Spectral:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a class="wordmark duo-text" href="#top">TimeTraveler</a>
+    <div class="nav-links">
+      <a href="#overview">Overview</a>
+      <a href="#demo">Demo</a>
+      <a href="#method">Method</a>
+      <a href="#results">Results</a>
+      <a href="#analysis">Analysis</a>
+      <a href="#bibtex">BibTeX</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero wrap" id="top">
+  <span class="venue">NeurIPS 2026, Sydney</span>
+
+  <h1>
+    <span class="name duo-text">TimeTraveler</span>
+    <span class="title">Temporal Strategy Planning with Time Dictionary for Streaming Video Understanding</span>
+  </h1>
+
+  <!-- Where is the evidence? Past / Current / Future on one timeline -->
+  <div class="tline">
+    <svg viewBox="0 0 760 236" role="img" aria-label="A question arrives mid-stream. The planner asks where the evidence is: look back into the past, look at the current scene, or look ahead and wait for the future.">
+      <defs>
+        <marker id="mk-past" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a40f16"></path></marker>
+        <marker id="mk-cur" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1d58a7"></path></marker>
+        <marker id="mk-fut" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ff5f05"></path></marker>
+        <marker id="mk-time" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ff5f05"></path></marker>
+      </defs>
+
+      <!-- planner -->
+      <g class="planner">
+        <text x="450" y="10" text-anchor="middle" font-family="'Public Sans', sans-serif" font-size="12.5" fill="#4b586c">a question arrives at t<tspan font-size="9.5" dy="3">q</tspan></text>
+        <rect x="345" y="20" width="210" height="48" rx="12" fill="#ffffff" stroke="#13294b" stroke-width="2"></rect>
+        <text x="450" y="50" text-anchor="middle" font-family="Spectral, Georgia, serif" font-size="19.5" font-weight="600" fill="#13294b">Where is the evidence?</text>
+      </g>
+
+      <!-- timeline: past (recorded), current, future (not yet observed) -->
+      <line class="axis" x1="20" y1="160" x2="404" y2="160" stroke="#a40f16" stroke-width="3"></line>
+      <line class="now" x1="404" y1="160" x2="496" y2="160" stroke="#1d58a7" stroke-width="3"></line>
+      <line class="now" x1="500" y1="160" x2="742" y2="160" stroke="#ff5f05" stroke-width="2.5" stroke-dasharray="6 6" marker-end="url(#mk-time)"></line>
+
+      <g id="pastEntries"></g>
+      <rect class="now" x="446" y="151" width="8" height="18" rx="2" fill="#eaf0f8" stroke="#1d58a7" stroke-width="1.6"></rect>
+      <g class="now" id="futureEntries"></g>
+
+      <!-- three arms -->
+      <path class="arm a1" d="M 420 68 C 372 120, 258 100, 207 142" fill="none" stroke="#a40f16" stroke-width="2.2" marker-end="url(#mk-past)"></path>
+      <path class="arm a2" d="M 450 68 L 450 142" fill="none" stroke="#1d58a7" stroke-width="2.2" marker-end="url(#mk-cur)"></path>
+      <path class="arm a3" d="M 480 68 C 528 120, 604 100, 628 142" fill="none" stroke="#ff5f05" stroke-width="2.2" marker-end="url(#mk-fut)"></path>
+
+      <!-- labels -->
+      <g class="lbl" font-family="Spectral, Georgia, serif" font-size="21" font-weight="600" text-anchor="middle">
+        <text x="207" y="204" fill="#a40f16">Look back</text>
+        <text x="450" y="204" fill="#1d58a7">Look now</text>
+        <text x="628" y="204" fill="#c84113">Look ahead</text>
+      </g>
+      <g class="lbl" font-family="'Public Sans', sans-serif" font-size="12.5" text-anchor="middle" fill="#4b586c">
+        <text x="207" y="225">recall it from the Time Dictionary</text>
+        <text x="450" y="225">read the current scene</text>
+        <text x="628" y="225">wait until it happens</text>
+      </g>
+    </svg>
+
+    <div class="tline-mobile">
+      <span class="q">Where is the evidence?</span>
+      <span class="down">↓</span>
+      <div class="opts">
+        <span class="o p"><b>Look back</b>past</span>
+        <span class="o c"><b>Look now</b>current</span>
+        <span class="o f"><b>Look ahead</b>future</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="subline">A training-free framework for streaming video QA. TimeTraveler writes every observed moment into a Time Dictionary of structured captions, and decides for each question whether to look back into the past, read the current scene, or wait for what comes next.</p>
+
+  <div class="authors">
+    <div class="row">
+      <a href="https://www.linkedin.com/in/minkuk-kim/">Minkuk Kim</a><sup class="k">1</sup>,&nbsp;
+      <a href="https://jhkim0911.github.io/">Junho Kim</a><sup class="u">2</sup><sup>†</sup>,&nbsp;
+      <a href="https://www.linkedin.com/in/seong-tae-kim-b2b04086/">Seong Tae Kim</a><sup class="k">1</sup><sup>†</sup>
+    </div>
+    <div class="affils">
+      <span class="inst khu"><i class="dot"></i><sup class="k">1</sup>Kyung Hee University</span>
+      <span class="inst uiuc"><i class="dot"></i><sup class="u">2</sup>University of Illinois Urbana-Champaign</span>
+    </div>
+    <div class="marks"><sup>†</sup>Corresponding authors</div>
+  </div>
+
+  <div class="btn-row">
+    <a class="btn" href="static/pdf/TimeTraveler_NeurIPS2026.pdf">📄 Paper</a>
+    <span class="btn soon" title="Coming soon">arXiv <span class="tag">soon</span></span>
+    <span class="btn soon" title="Coming soon">💻 Code <span class="tag">soon</span></span>
+  </div>
+</header>
+
+<main>
+  <section id="overview" class="wrap">
+    <h2>Overview</h2>
+    <div class="prose">
+      <p>In a live video stream, a question can arrive at any moment, and its answer may sit in the <span class="t-past">past</span>, in the <span class="t-current">current</span> scene, or in something that has not happened yet, in the <span class="t-future">future</span>. Memory-based streaming models keep history as compressed visual tokens or KV caches, which tends to blur small text, object attributes, and spatial relations. They also reach that memory the same way for every question.</p>
+      <p><b>TimeTraveler</b> handles both sides with two pieces:</p>
+      <ol class="steps">
+        <li><b>Record.</b> Every second, a small frozen captioner writes the frame into the <b>Time Dictionary</b>: a timestamped entry with eight fields, from scene and objects to on-screen text and spatial layout. A logo or a color seen once is still readable later.</li>
+        <li><b>Plan.</b> When a question arrives, the <b>Temporal Strategy Planner</b> decides where its evidence lives: in the past, in the current scene, or in the future.</li>
+        <li><b>Acquire and answer.</b> Each strategy gathers evidence its own way, and a frozen MLLM answers once.</li>
+      </ol>
+      <p>Nothing is trained. On OVO-Bench and StreamingBench, TimeTraveler improves both Qwen3-VL-8B and InternVL3.5-8B and reaches the best overall score among open-source models.</p>
+    </div>
+    <figure>
+      <img src="static/images/teaser.jpg" alt="Comparison: prior memory-based streaming methods use historical agent memory, pruned tokens, or KV memory with a single lookback path. TimeTraveler plans a temporal strategy (past lookback, current perception, or future observation) and reads the Time Dictionary, where the logos from the walkout are still recorded.">
+      <figcaption><b>Prior memory-based streaming VQA vs. TimeTraveler.</b> Prior methods keep history as agent memory, pruned tokens, or KV memory and reach it through a single lookback path. TimeTraveler first plans whether the question points to the past, the current scene, or the future, then reads the Time Dictionary accordingly. Here the logos from the walkout at t<sub>1</sub> are still in the dictionary when the question comes.</figcaption>
+    </figure>
+  </section>
+
+  <section id="demo" class="wrap">
+    <h2>See it in action</h2>
+    <div class="prose">
+      <p>Three questions from the paper, each asked mid-stream. Frames after the question are not available yet. Pick a case to see which moment the planner reaches for and what the Time Dictionary kept from it.</p>
+    </div>
+
+    <div class="explorer">
+      <div class="method-tabs" id="caseRow"></div>
+      <div class="qa-card">
+        <div class="qk">Question asked at t<sub>q</sub></div>
+        <div class="q" id="qText"></div>
+      </div>
+      <div class="planner-row">
+        <span>Temporal Strategy Planner →</span>
+        <span class="chip on past">Past</span><span class="chip">Current</span><span class="chip">Future</span>
+      </div>
+      <div class="stream" id="stream"></div>
+      <div class="unseen-note">Grayed frames come after the question and are not seen yet.</div>
+      <div class="entry" id="entry"></div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+
+  </section>
+
+  <section id="method" class="wrap">
+    <h2>Method</h2>
+    <div class="prose">
+      <p>TimeTraveler separates <b>what to keep</b> from the stream from <b>how to reach it</b>. Recording runs continuously; a question triggers planning, evidence gathering, and a single answer. The two loops run asynchronously, and every model in them is frozen.</p>
+    </div>
+    <figure>
+      <img src="static/images/method.jpg" alt="TimeTraveler pipeline: frames pass through a visual encoder and dictionary captioner into the Time Dictionary. The Temporal Strategy Planner routes the question to a past branch (similarity measure and probability-mass selection), a current branch (current caption), or a future branch (gating model that answers or keeps observing).">
+      <figcaption><b>Overview.</b> Frames are written into the Time Dictionary as structured captions while the stream plays. When a question arrives, the Temporal Strategy Planner routes it: past questions retrieve captions through similarity-based lookback, current questions read the caption at query time, and future questions keep observing until a gate sees the evidence.</figcaption>
+    </figure>
+
+    <h3 class="sub-title">The Time Dictionary</h3>
+    <p class="sub-lead">One structured entry per second of video. Each field nudges the captioner to write down details that a later question might need.</p>
+    <div class="schema">
+      <div class="field"><div class="fn">Scene</div><div class="fd">location and setting</div></div>
+      <div class="field"><div class="fn">Objects</div><div class="fd">entities with color, size, state</div></div>
+      <div class="field"><div class="fn">People</div><div class="fd">count, appearance, clothing, expression</div></div>
+      <div class="field"><div class="fn">Actions</div><div class="fd">ongoing events and interactions</div></div>
+      <div class="field"><div class="fn">Text</div><div class="fd">signs, labels, subtitles, logos</div></div>
+      <div class="field"><div class="fn">Spatial</div><div class="fd">layout and relative positions</div></div>
+      <div class="field"><div class="fn">Atmosphere</div><div class="fd">lighting, tone, time of day, mood</div></div>
+      <div class="field"><div class="fn">Details</div><div class="fd">a short paragraph for the rest</div></div>
+    </div>
+    <p class="note">Captioned at 1 fps by Qwen3-VL-2B (8-bit). A Qwen3-Embedding-0.6B vector per entry is kept for about 10 minutes as a retrieval handle; the caption text is what the answer model reads.</p>
+
+    <h3 class="sub-title">Three ways to gather evidence</h3>
+    <div class="strategies">
+      <div class="strat past">
+        <div class="kick">Past</div>
+        <h4>Look back</h4>
+        <p>Scores stored captions against the question, penalizes older ones, and keeps the smallest set that covers 70% of the probability mass. Focused evidence gives a short list; diffuse evidence gives a longer one.</p>
+        <div class="formula">score = similarity − age / τ<sub>r</sub></div>
+        <div class="eg">"What did the person pick up earlier?"</div>
+      </div>
+      <div class="strat current">
+        <div class="kick">Current</div>
+        <h4>Look now</h4>
+        <p>Reads only the caption at question time. Skipping global lookback keeps similar but older events from turning into distractors.</p>
+        <div class="eg">"What is the person doing now?"</div>
+      </div>
+      <div class="strat future">
+        <div class="kick">Future</div>
+        <h4>Look ahead</h4>
+        <p>Holds the answer. A lightweight gate checks each new caption against the question, and the answer model runs once: when the gate says yes, or after 30 seconds.</p>
+        <div class="eg">"Tell me when the car stops."</div>
+      </div>
+    </div>
+    <p class="note">The planner is the same frozen Qwen3-VL-2B, prompted to output one of past, current, or future. Past lookback uses the 32 most similar captions, τ<sub>r</sub> = 150 s, and softmax temperature 0.02.</p>
+  </section>
+
+  <section id="results" class="wrap">
+    <h2>Results</h2>
+    <div class="prose">
+      <p>TimeTraveler reaches the best overall score among open-source models on both benchmarks and lifts both backbones without any training. The gains follow the two design goals: detail-heavy tasks such as OCR and text-rich understanding (TR) benefit from the Time Dictionary, while temporally grounded tasks such as episodic memory (EPM) and proactive output (PO) benefit from planning.</p>
+    </div>
+
+    <div class="headline">
+      <div class="hl">
+        <div class="bench">OVO-Bench overall</div>
+        <div class="line"><span class="bk">Qwen3-VL-8B</span><span class="from">51.70 →</span><span class="to">58.02</span><span class="gain">+6.32</span></div>
+        <div class="line"><span class="bk">InternVL3.5-8B</span><span class="from">47.84 →</span><span class="to">49.03</span><span class="gain">+1.19</span></div>
+      </div>
+      <div class="hl">
+        <div class="bench">StreamingBench overall</div>
+        <div class="line"><span class="bk">Qwen3-VL-8B</span><span class="from">59.33 →</span><span class="to">64.51</span><span class="gain">+5.18</span></div>
+        <div class="line"><span class="bk">InternVL3.5-8B</span><span class="from">61.71 →</span><span class="to">65.64</span><span class="gain">+3.93</span></div>
+      </div>
+    </div>
+
+    <div class="tbl-head">
+      <h3>OVO-Bench</h3>
+      <button class="toggle" type="button" data-table="ovoTable">Show all subtasks</button>
+    </div>
+    <div class="tables-wrap">
+      <table class="res compact" id="ovoTable">
+        <thead>
+          <tr>
+            <th rowspan="2">Method</th>
+            <th rowspan="2">#Frames</th>
+            <th class="grp" colspan="7" data-full="7" data-compact="1" data-long="Real-Time Visual Perception" data-short="Real-Time">Real-Time Visual Perception</th>
+            <th class="grp" colspan="4" data-full="4" data-compact="1" data-long="Backward Tracing" data-short="Backward">Backward Tracing</th>
+            <th class="grp" colspan="4" data-full="4" data-compact="1" data-long="Forward Active Responding" data-short="Forward">Forward Active Responding</th>
+            <th rowspan="2" class="ovr">Overall</th>
+          </tr>
+          <tr>
+            <th class="sub">OCR</th><th class="sub">ACR</th><th class="sub">ATR</th><th class="sub">STU</th><th class="sub">FPD</th><th class="sub">OJR</th><th class="avg">Avg.</th>
+            <th class="sub">EPM</th><th class="sub">ASI</th><th class="sub">HLD</th><th class="avg">Avg.</th>
+            <th class="sub">REC</th><th class="sub">SSR</th><th class="sub">CRR</th><th class="avg">Avg.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group"><td colspan="18" data-full="18" data-compact="6">Human</td></tr>
+          <tr class="ref"><td>Human</td><td>–</td><td class="sub">93.96</td><td class="sub">92.57</td><td class="sub">94.83</td><td class="sub">92.70</td><td class="sub">91.09</td><td class="sub">94.02</td><td class="avg">93.20</td><td class="sub">92.59</td><td class="sub">93.02</td><td class="sub">91.37</td><td class="avg">92.33</td><td class="sub">95.48</td><td class="sub">89.67</td><td class="sub">93.56</td><td class="avg">92.90</td><td class="ovr">92.81</td></tr>
+          <tr class="group"><td colspan="18" data-full="18" data-compact="6">Proprietary Models (Offline)</td></tr>
+          <tr class="ref"><td>Gemini 1.5 Pro</td><td>1 fps</td><td class="sub">85.91</td><td class="sub">66.97</td><td class="sub">79.31</td><td class="sub">58.43</td><td class="sub">63.37</td><td class="sub">61.96</td><td class="avg">69.32</td><td class="sub">58.59</td><td class="sub">76.35</td><td class="sub">52.64</td><td class="avg">62.54</td><td class="sub">35.53</td><td class="sub">74.24</td><td class="sub">61.67</td><td class="avg">57.15</td><td class="ovr">63.00</td></tr>
+          <tr class="ref"><td>GPT-4o</td><td>64</td><td class="sub">69.80</td><td class="sub">64.22</td><td class="sub">71.55</td><td class="sub">51.12</td><td class="sub">70.30</td><td class="sub">59.78</td><td class="avg">64.46</td><td class="sub">57.91</td><td class="sub">75.68</td><td class="sub">48.66</td><td class="avg">60.75</td><td class="sub">27.58</td><td class="sub">73.21</td><td class="sub">59.40</td><td class="avg">53.40</td><td class="ovr">59.54</td></tr>
+          <tr class="group"><td colspan="18" data-full="18" data-compact="6">Open-Source Offline Models</td></tr>
+          <tr><td>LLaVA-Video-7B</td><td>64</td><td class="sub">69.13</td><td class="sub">58.72</td><td class="sub">68.83</td><td class="sub">49.44</td><td class="sub"><u>74.26</u></td><td class="sub">59.78</td><td class="avg">63.52</td><td class="sub"><u>56.23</u></td><td class="sub">57.43</td><td class="sub">7.53</td><td class="avg">40.40</td><td class="sub"><u>34.10</u></td><td class="sub"><b>69.95</b></td><td class="sub"><u>60.42</u></td><td class="avg"><b>54.82</b></td><td class="ovr">52.91</td></tr>
+          <tr><td>LLaVA-OV-7B</td><td>64</td><td class="sub">66.44</td><td class="sub">57.80</td><td class="sub">73.28</td><td class="sub">53.37</td><td class="sub">71.29</td><td class="sub">61.96</td><td class="avg">64.02</td><td class="sub">54.21</td><td class="sub">55.41</td><td class="sub">21.51</td><td class="avg">43.71</td><td class="sub">25.64</td><td class="sub">67.09</td><td class="sub">58.75</td><td class="avg">50.50</td><td class="ovr">52.74</td></tr>
+          <tr><td>LLaVA-N-Video-7B</td><td>64</td><td class="sub">69.80</td><td class="sub">59.60</td><td class="sub">66.40</td><td class="sub">50.60</td><td class="sub">72.30</td><td class="sub">61.40</td><td class="avg">63.30</td><td class="sub">51.20</td><td class="sub">64.20</td><td class="sub">9.70</td><td class="avg">41.70</td><td class="sub"><u>34.10</u></td><td class="sub"><u>67.60</u></td><td class="sub"><b>60.80</b></td><td class="avg"><u>54.20</u></td><td class="ovr"><u>53.10</u></td></tr>
+          <tr><td>Qwen2-VL-7B</td><td>64</td><td class="sub">60.40</td><td class="sub">50.46</td><td class="sub">56.03</td><td class="sub">47.19</td><td class="sub">66.34</td><td class="sub">55.43</td><td class="avg">55.98</td><td class="sub">47.81</td><td class="sub">35.48</td><td class="sub"><b>56.08</b></td><td class="avg"><u>46.46</u></td><td class="sub">31.66</td><td class="sub">65.82</td><td class="sub">48.75</td><td class="avg">48.74</td><td class="ovr">50.39</td></tr>
+          <tr><td>InternVL-V2-8B</td><td>64</td><td class="sub">67.11</td><td class="sub">60.55</td><td class="sub">63.79</td><td class="sub">46.07</td><td class="sub">68.32</td><td class="sub">56.52</td><td class="avg">60.39</td><td class="sub">48.15</td><td class="sub">57.43</td><td class="sub">24.73</td><td class="avg">43.44</td><td class="sub">26.50</td><td class="sub">59.14</td><td class="sub">54.14</td><td class="avg">46.60</td><td class="ovr">50.15</td></tr>
+          <tr><td>LongVU-7B</td><td>1 fps</td><td class="sub">55.70</td><td class="sub">49.50</td><td class="sub">59.50</td><td class="sub">48.30</td><td class="sub">68.30</td><td class="sub">63.00</td><td class="avg">57.40</td><td class="sub">43.10</td><td class="sub">66.20</td><td class="sub">9.10</td><td class="avg">39.50</td><td class="sub">16.60</td><td class="sub"><u>69.00</u></td><td class="sub">60.00</td><td class="avg">48.50</td><td class="ovr">48.50</td></tr>
+          <tr class="group"><td colspan="18" data-full="18" data-compact="6">Open-Source Online Models</td></tr>
+          <tr><td>Flash-VStream-7B</td><td>1 fps</td><td class="sub">24.16</td><td class="sub">29.36</td><td class="sub">28.45</td><td class="sub">33.71</td><td class="sub">25.74</td><td class="sub">28.80</td><td class="avg">28.37</td><td class="sub">39.06</td><td class="sub">37.16</td><td class="sub">5.91</td><td class="avg">27.38</td><td class="sub">8.02</td><td class="sub">67.25</td><td class="sub">60.00</td><td class="avg">45.09</td><td class="ovr">33.61</td></tr>
+          <tr><td>VideoLLM-Online-8B</td><td>2 fps</td><td class="sub">8.05</td><td class="sub">23.85</td><td class="sub">12.07</td><td class="sub">14.04</td><td class="sub">45.54</td><td class="sub">21.20</td><td class="avg">20.79</td><td class="sub">22.22</td><td class="sub">18.80</td><td class="sub">12.18</td><td class="avg">17.73</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="avg">–</td><td class="ovr">–</td></tr>
+          <tr><td>VideoLLM-EyeWO</td><td>1 fps</td><td class="sub">24.16</td><td class="sub">27.52</td><td class="sub">31.89</td><td class="sub">32.58</td><td class="sub">44.55</td><td class="sub">35.87</td><td class="avg">32.76</td><td class="sub">39.06</td><td class="sub">38.51</td><td class="sub">6.45</td><td class="avg">28.00</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="avg">–</td><td class="ovr">–</td></tr>
+          <tr><td>Dispider-7B</td><td>1 fps</td><td class="sub">57.72</td><td class="sub">49.54</td><td class="sub">62.07</td><td class="sub">44.94</td><td class="sub">61.39</td><td class="sub">51.63</td><td class="avg">54.55</td><td class="sub">48.48</td><td class="sub">55.41</td><td class="sub">4.30</td><td class="avg">36.06</td><td class="sub">18.05</td><td class="sub">37.36</td><td class="sub">48.75</td><td class="avg">34.72</td><td class="ovr">41.78</td></tr>
+          <tr><td>TimeChat-Online-7B</td><td>1 fps</td><td class="sub">69.80</td><td class="sub">48.60</td><td class="sub">64.70</td><td class="sub">44.90</td><td class="sub">68.30</td><td class="sub">55.40</td><td class="avg">58.60</td><td class="sub">53.90</td><td class="sub">62.80</td><td class="sub">9.10</td><td class="avg">42.00</td><td class="sub">32.50</td><td class="sub">36.50</td><td class="sub">40.00</td><td class="avg">36.40</td><td class="ovr">45.60</td></tr>
+          <tr><td>StreamAgent-7B</td><td>1 fps</td><td class="sub">71.20</td><td class="sub">53.20</td><td class="sub">63.60</td><td class="sub">53.90</td><td class="sub">67.30</td><td class="sub">58.70</td><td class="avg">61.30</td><td class="sub">54.80</td><td class="sub">58.10</td><td class="sub"><u>25.80</u></td><td class="avg">41.70</td><td class="sub"><b>35.90</b></td><td class="sub">48.40</td><td class="sub">52.00</td><td class="avg">45.40</td><td class="ovr">49.40</td></tr>
+          <tr><td>QueryStream-7B</td><td>1 fps</td><td class="sub">74.50</td><td class="sub">47.70</td><td class="sub">70.70</td><td class="sub">46.60</td><td class="sub">71.30</td><td class="sub">57.60</td><td class="avg">61.40</td><td class="sub">54.20</td><td class="sub">63.50</td><td class="sub">8.60</td><td class="avg">42.10</td><td class="sub">33.20</td><td class="sub">43.10</td><td class="sub">40.80</td><td class="avg">39.03</td><td class="ovr">47.51</td></tr>
+          <tr class="group"><td colspan="18" data-full="18" data-compact="6">Backbones with TimeTraveler (training-free)</td></tr>
+          <tr><td>InternVL3.5-8B</td><td>1fps</td><td class="sub">79.87</td><td class="sub">65.14</td><td class="sub">69.83</td><td class="sub"><b>61.80</b></td><td class="sub">70.30</td><td class="sub">65.22</td><td class="avg">68.69</td><td class="sub">33.00</td><td class="sub">59.46</td><td class="sub">4.30</td><td class="avg">32.25</td><td class="sub">32.66</td><td class="sub">60.10</td><td class="sub">35.00</td><td class="avg">42.59</td><td class="ovr">47.84</td></tr>
+          <tr class="ours"><td>+ TimeTraveler</td><td>1fps</td><td class="sub"><b>91.95</b></td><td class="sub"><u>70.64</u></td><td class="sub"><u>75.00</u></td><td class="sub"><b>61.80</b></td><td class="sub"><b>75.25</b></td><td class="sub"><b>77.17</b></td><td class="avg"><b>75.30</b><span class="up">+6.61</span></td><td class="sub">33.67</td><td class="sub">60.81</td><td class="sub">9.68</td><td class="avg">34.72<span class="up">+2.47</span></td><td class="sub">22.21</td><td class="sub">50.24</td><td class="sub">38.75</td><td class="avg">37.06<span class="dn">−5.53</span></td><td class="ovr">49.03<span class="up">+1.19</span></td></tr>
+          <tr><td>Qwen3-VL-8B</td><td>1fps</td><td class="sub">75.17</td><td class="sub">60.55</td><td class="sub">66.38</td><td class="sub"><u>53.93</u></td><td class="sub">66.34</td><td class="sub">57.07</td><td class="avg">63.24</td><td class="sub">52.53</td><td class="sub"><u>67.57</u></td><td class="sub">10.22</td><td class="avg">43.44</td><td class="sub">33.09</td><td class="sub">65.50</td><td class="sub">46.67</td><td class="avg">48.42</td><td class="ovr">51.70</td></tr>
+          <tr class="ours"><td>+ TimeTraveler</td><td>1fps</td><td class="sub"><u>87.25</u></td><td class="sub"><b>73.39</b></td><td class="sub"><b>76.72</b></td><td class="sub"><u>59.55</u></td><td class="sub">68.32</td><td class="sub"><u>74.46</u></td><td class="avg"><u>73.00</u><span class="up">+9.76</span></td><td class="sub"><b>59.26</b></td><td class="sub"><b>69.59</b></td><td class="sub">25.27</td><td class="avg"><b>51.66</b><span class="up">+8.22</span></td><td class="sub">32.23</td><td class="sub">67.25</td><td class="sub">48.75</td><td class="avg">49.41<span class="up">+0.99</span></td><td class="ovr"><b>58.02</b><span class="up">+6.32</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tbl-note">Overall is the macro average over the three categories. <b>Bold</b> and <u>underline</u> mark the best and second best among open-source models, as in the paper. Gray rows are human and proprietary references. <span class="up-legend">+x.xx</span> is the change from the same backbone without TimeTraveler.</p>
+
+    <div class="tbl-head">
+      <h3>StreamingBench</h3>
+      <button class="toggle" type="button" data-table="sbTable">Show all subtasks</button>
+    </div>
+    <div class="tables-wrap">
+      <table class="res compact" id="sbTable">
+        <thead>
+          <tr>
+            <th rowspan="2">Model</th>
+            <th rowspan="2">#Frames</th>
+            <th class="grp" colspan="11" data-full="11" data-compact="1" data-long="Real-Time Visual Understanding" data-short="Real-Time">Real-Time Visual Understanding</th>
+            <th class="grp" colspan="5" data-full="5" data-compact="1" data-long="Omni-Source Understanding" data-short="Omni-Source">Omni-Source Understanding</th>
+            <th class="grp" colspan="5" data-full="5" data-compact="1" data-long="Contextual Understanding" data-short="Contextual">Contextual Understanding</th>
+            <th rowspan="2" class="ovr">Overall</th>
+          </tr>
+          <tr>
+            <th class="sub">OP</th><th class="sub">CR</th><th class="sub">CS</th><th class="sub">ATP</th><th class="sub">EU</th><th class="sub">TR</th><th class="sub">PR</th><th class="sub">SU</th><th class="sub">ACP</th><th class="sub">CT</th><th class="avg">All</th>
+            <th class="sub">ER</th><th class="sub">SCU</th><th class="sub">SD</th><th class="sub">MA</th><th class="avg">All</th>
+            <th class="sub">ACU</th><th class="sub">MCU</th><th class="sub">SQA</th><th class="sub">PO</th><th class="avg">All</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group"><td colspan="24" data-full="24" data-compact="6">Human</td></tr>
+          <tr class="ref"><td>Human<sup>‡</sup></td><td>–</td><td class="sub">89.47</td><td class="sub">92.00</td><td class="sub">93.60</td><td class="sub">91.47</td><td class="sub">95.65</td><td class="sub">92.52</td><td class="sub">88.00</td><td class="sub">88.75</td><td class="sub">89.74</td><td class="sub">91.30</td><td class="avg">91.46</td><td class="sub">88.00</td><td class="sub">88.24</td><td class="sub">93.60</td><td class="sub">90.27</td><td class="avg">90.26</td><td class="sub">88.80</td><td class="sub">90.40</td><td class="sub">95.00</td><td class="sub">100.00</td><td class="avg">93.55</td><td class="ovr">91.66</td></tr>
+          <tr class="group"><td colspan="24" data-full="24" data-compact="6">Proprietary MLLMs</td></tr>
+          <tr class="ref"><td>Gemini 1.5 pro</td><td>1 fps</td><td class="sub">79.02</td><td class="sub">80.47</td><td class="sub">83.54</td><td class="sub">79.67</td><td class="sub">80.00</td><td class="sub">84.74</td><td class="sub">77.78</td><td class="sub">64.23</td><td class="sub">71.95</td><td class="sub">48.70</td><td class="avg">75.69</td><td class="sub">46.80</td><td class="sub">39.60</td><td class="sub">74.90</td><td class="sub">80.00</td><td class="avg">60.22</td><td class="sub">51.41</td><td class="sub">40.73</td><td class="sub">54.80</td><td class="sub">45.10</td><td class="avg">48.73</td><td class="ovr">67.07</td></tr>
+          <tr class="ref"><td>GPT-4o</td><td>64</td><td class="sub">77.11</td><td class="sub">80.47</td><td class="sub">83.91</td><td class="sub">76.47</td><td class="sub">70.19</td><td class="sub">83.80</td><td class="sub">66.67</td><td class="sub">62.19</td><td class="sub">69.12</td><td class="sub">49.22</td><td class="avg">73.28</td><td class="sub">41.20</td><td class="sub">37.20</td><td class="sub">43.60</td><td class="sub">56.00</td><td class="avg">44.50</td><td class="sub">41.20</td><td class="sub">38.40</td><td class="sub">32.80</td><td class="sub">56.86</td><td class="avg">38.70</td><td class="ovr">60.15</td></tr>
+          <tr class="ref"><td>Claude 3.5 Sonnet</td><td>20</td><td class="sub">80.49</td><td class="sub">77.34</td><td class="sub">82.02</td><td class="sub">81.73</td><td class="sub">72.33</td><td class="sub">75.39</td><td class="sub">61.11</td><td class="sub">61.79</td><td class="sub">69.32</td><td class="sub">43.09</td><td class="avg">72.44</td><td class="sub">31.60</td><td class="sub">34.00</td><td class="sub">32.80</td><td class="sub">48.80</td><td class="avg">36.80</td><td class="sub">38.40</td><td class="sub">34.80</td><td class="sub">34.40</td><td class="sub">64.71</td><td class="avg">37.70</td><td class="ovr">57.68</td></tr>
+          <tr class="group"><td colspan="24" data-full="24" data-compact="6">Open-Source Offline Video MLLMs</td></tr>
+          <tr><td>LLaVA-OV-7B</td><td>32</td><td class="sub">80.38</td><td class="sub">74.22</td><td class="sub">76.03</td><td class="sub">80.72</td><td class="sub">72.67</td><td class="sub">71.65</td><td class="sub">67.59</td><td class="sub">65.45</td><td class="sub">65.72</td><td class="sub">45.08</td><td class="avg">71.12</td><td class="sub">40.80</td><td class="sub"><b>37.20</b></td><td class="sub">33.60</td><td class="sub">44.80</td><td class="avg">38.40</td><td class="sub">35.60</td><td class="sub">36.00</td><td class="sub">27.27</td><td class="sub">29.55</td><td class="avg">32.74</td><td class="ovr">56.36</td></tr>
+          <tr><td>Qwen2-VL-7B</td><td>0.2–1 fps<sup>†</sup></td><td class="sub">75.20</td><td class="sub">82.81</td><td class="sub">73.19</td><td class="sub">77.45</td><td class="sub">68.32</td><td class="sub">71.03</td><td class="sub">72.22</td><td class="sub">61.19</td><td class="sub">61.47</td><td class="sub">46.11</td><td class="avg">69.04</td><td class="sub">41.20</td><td class="sub">22.00</td><td class="sub">32.80</td><td class="sub">43.60</td><td class="avg">34.90</td><td class="sub">31.20</td><td class="sub">26.00</td><td class="sub">39.60</td><td class="sub">22.73</td><td class="avg">31.66</td><td class="ovr">54.14</td></tr>
+          <tr><td>MiniCPM-V 2.6-8B</td><td>32</td><td class="sub">71.93</td><td class="sub">71.09</td><td class="sub">77.92</td><td class="sub">75.82</td><td class="sub">64.60</td><td class="sub">65.73</td><td class="sub">70.37</td><td class="sub">56.10</td><td class="sub">62.32</td><td class="sub">53.37</td><td class="avg">67.44</td><td class="sub">40.80</td><td class="sub">24.00</td><td class="sub">34.00</td><td class="sub">41.20</td><td class="avg">35.00</td><td class="sub">34.00</td><td class="sub">31.60</td><td class="sub">41.92</td><td class="sub">22.22</td><td class="avg">34.97</td><td class="ovr">53.85</td></tr>
+          <tr><td>InternVL-V2-8B</td><td>16</td><td class="sub">68.12</td><td class="sub">60.94</td><td class="sub">69.40</td><td class="sub">77.12</td><td class="sub">67.70</td><td class="sub">62.93</td><td class="sub">59.26</td><td class="sub">53.25</td><td class="sub">54.96</td><td class="sub">56.48</td><td class="avg">63.72</td><td class="sub">37.60</td><td class="sub">26.40</td><td class="sub">37.20</td><td class="sub">42.00</td><td class="avg">35.80</td><td class="sub">32.00</td><td class="sub">31.20</td><td class="sub">32.32</td><td class="sub">40.91</td><td class="avg">32.42</td><td class="ovr">51.40</td></tr>
+          <tr><td>Kangaroo-7B</td><td>64</td><td class="sub">71.12</td><td class="sub"><b>84.38</b></td><td class="sub">70.66</td><td class="sub">73.20</td><td class="sub">67.08</td><td class="sub">61.68</td><td class="sub">56.48</td><td class="sub">55.69</td><td class="sub">62.04</td><td class="sub">38.86</td><td class="avg">64.60</td><td class="sub">37.60</td><td class="sub">31.20</td><td class="sub">28.80</td><td class="sub">39.20</td><td class="avg">34.20</td><td class="sub">32.80</td><td class="sub">26.40</td><td class="sub">33.84</td><td class="sub">16.00</td><td class="avg">30.06</td><td class="ovr">51.10</td></tr>
+          <tr><td>LongVA-7B</td><td>128</td><td class="sub">70.03</td><td class="sub">63.28</td><td class="sub">61.20</td><td class="sub">70.92</td><td class="sub">62.73</td><td class="sub">59.50</td><td class="sub">61.11</td><td class="sub">53.66</td><td class="sub">54.67</td><td class="sub">34.72</td><td class="avg">59.96</td><td class="sub">39.60</td><td class="sub">32.40</td><td class="sub">28.00</td><td class="sub">41.60</td><td class="avg">35.40</td><td class="sub">32.80</td><td class="sub">29.60</td><td class="sub">30.30</td><td class="sub">15.91</td><td class="avg">29.95</td><td class="ovr">48.66</td></tr>
+          <tr><td>VILA-1.5-8B</td><td>14</td><td class="sub">53.68</td><td class="sub">49.22</td><td class="sub">70.98</td><td class="sub">56.86</td><td class="sub">53.42</td><td class="sub">53.89</td><td class="sub">54.63</td><td class="sub">48.78</td><td class="sub">50.14</td><td class="sub">17.62</td><td class="avg">52.32</td><td class="sub"><u>41.60</u></td><td class="sub">26.40</td><td class="sub">28.40</td><td class="sub">36.00</td><td class="avg">33.10</td><td class="sub">26.80</td><td class="sub">34.00</td><td class="sub">23.23</td><td class="sub">17.65</td><td class="avg">27.35</td><td class="ovr">43.20</td></tr>
+          <tr><td>Video-CCAM-14B</td><td>96</td><td class="sub">56.40</td><td class="sub">57.81</td><td class="sub">65.30</td><td class="sub">62.75</td><td class="sub">64.60</td><td class="sub">51.40</td><td class="sub">42.59</td><td class="sub">47.97</td><td class="sub">49.58</td><td class="sub">31.61</td><td class="avg">53.96</td><td class="sub">33.60</td><td class="sub">22.00</td><td class="sub">28.40</td><td class="sub">34.80</td><td class="avg">29.70</td><td class="sub">27.60</td><td class="sub">24.40</td><td class="sub">16.67</td><td class="sub">22.73</td><td class="avg">22.88</td><td class="ovr">42.53</td></tr>
+          <tr><td>Video-LLaMA2-7B</td><td>32</td><td class="sub">55.86</td><td class="sub">55.47</td><td class="sub">57.41</td><td class="sub">58.17</td><td class="sub">52.80</td><td class="sub">43.61</td><td class="sub">39.81</td><td class="sub">42.68</td><td class="sub">45.61</td><td class="sub">35.23</td><td class="avg">49.52</td><td class="sub">30.40</td><td class="sub">32.40</td><td class="sub">30.40</td><td class="sub">36.00</td><td class="avg">32.40</td><td class="sub">24.80</td><td class="sub">26.80</td><td class="sub">18.67</td><td class="sub">0.00</td><td class="avg">21.93</td><td class="ovr">40.40</td></tr>
+          <tr class="group"><td colspan="24" data-full="24" data-compact="6">Open-Source Online Video MLLMs</td></tr>
+          <tr><td>Flash-VStream-7B</td><td>–</td><td class="sub">25.89</td><td class="sub">43.57</td><td class="sub">24.91</td><td class="sub">23.87</td><td class="sub">27.33</td><td class="sub">13.08</td><td class="sub">18.52</td><td class="sub">25.20</td><td class="sub">23.87</td><td class="sub">48.70</td><td class="avg">23.23</td><td class="sub">25.91</td><td class="sub">24.90</td><td class="sub">25.60</td><td class="sub">28.40</td><td class="avg">26.00</td><td class="sub">24.80</td><td class="sub">25.20</td><td class="sub">26.80</td><td class="sub">1.96</td><td class="avg">24.12</td><td class="ovr">24.04</td></tr>
+          <tr><td>VideoLLM-online-8B</td><td>2 fps</td><td class="sub">39.07</td><td class="sub">40.06</td><td class="sub">34.49</td><td class="sub">31.05</td><td class="sub">45.96</td><td class="sub">32.40</td><td class="sub">31.48</td><td class="sub">34.16</td><td class="sub">42.49</td><td class="sub">27.89</td><td class="avg">35.99</td><td class="sub">31.20</td><td class="sub">26.51</td><td class="sub">24.10</td><td class="sub">32.00</td><td class="avg">28.45</td><td class="sub">24.19</td><td class="sub">29.20</td><td class="sub">30.80</td><td class="sub">3.92</td><td class="avg">26.55</td><td class="ovr">32.48</td></tr>
+          <tr><td>Dispider-7B</td><td>1 fps</td><td class="sub">74.92</td><td class="sub">75.53</td><td class="sub">74.10</td><td class="sub">73.08</td><td class="sub">74.44</td><td class="sub">59.92</td><td class="sub">76.14</td><td class="sub">62.91</td><td class="sub">62.16</td><td class="sub">45.80</td><td class="avg">67.63</td><td class="sub">35.46</td><td class="sub">25.26</td><td class="sub">38.57</td><td class="sub">43.34</td><td class="avg">35.66</td><td class="sub">39.62</td><td class="sub">27.65</td><td class="sub">34.80</td><td class="sub">25.34</td><td class="avg">33.61</td><td class="ovr">53.12</td></tr>
+          <tr><td>TimeChat-Online-7B</td><td>1 fps</td><td class="sub">80.22</td><td class="sub">82.03</td><td class="sub">79.50</td><td class="sub">83.33</td><td class="sub">76.10</td><td class="sub">78.50</td><td class="sub">78.70</td><td class="sub">64.63</td><td class="sub">69.60</td><td class="sub"><u>57.98</u></td><td class="avg">75.36</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="avg">–</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="avg">–</td><td class="ovr">–</td></tr>
+          <tr><td>QueryStream-7B</td><td>1 fps</td><td class="sub"><b>82.38</b></td><td class="sub"><b>84.38</b></td><td class="sub">79.18</td><td class="sub">82.37</td><td class="sub"><u>77.99</u></td><td class="sub">81.31</td><td class="sub">78.70</td><td class="sub">65.04</td><td class="sub">69.32</td><td class="sub">47.34</td><td class="avg">75.32</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="avg">–</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="sub">–</td><td class="avg">–</td><td class="ovr">–</td></tr>
+          <tr class="group"><td colspan="24" data-full="24" data-compact="6">Backbones with TimeTraveler (training-free)</td></tr>
+          <tr><td>InternVL3.5-8B</td><td>1fps</td><td class="sub">78.86</td><td class="sub">82.81</td><td class="sub">85.17</td><td class="sub">81.41</td><td class="sub"><u>77.99</u></td><td class="sub">79.75</td><td class="sub">83.33</td><td class="sub"><u>70.73</u></td><td class="sub"><u>76.99</u></td><td class="sub">55.32</td><td class="avg">77.60</td><td class="sub">40.40</td><td class="sub">30.80</td><td class="sub">42.80</td><td class="sub"><u>53.60</u></td><td class="avg">41.90</td><td class="sub"><u>42.40</u></td><td class="sub">36.40</td><td class="sub"><b>48.40</b></td><td class="sub">40.00</td><td class="avg">41.80</td><td class="ovr">61.71</td></tr>
+          <tr class="ours"><td>+ TimeTraveler</td><td>1fps</td><td class="sub"><u>82.11</u></td><td class="sub">82.81</td><td class="sub"><b>89.27</b></td><td class="sub"><u>84.62</u></td><td class="sub"><b>83.65</b></td><td class="sub"><u>87.54</u></td><td class="sub"><u>87.04</u></td><td class="sub"><b>73.17</b></td><td class="sub"><b>77.56</b></td><td class="sub">53.72</td><td class="avg"><b>80.72</b><span class="up">+3.12</span></td><td class="sub"><b>48.40</b></td><td class="sub"><u>34.40</u></td><td class="sub"><b>48.00</b></td><td class="sub">51.20</td><td class="avg"><b>45.50</b><span class="up">+3.60</span></td><td class="sub"><b>47.60</b></td><td class="sub"><b>44.80</b></td><td class="sub">46.80</td><td class="sub"><u>53.23</u></td><td class="avg"><u>48.10</u><span class="up">+6.30</span></td><td class="ovr"><b>65.64</b><span class="up">+3.93</span></td></tr>
+          <tr><td>Qwen3-VL-8B</td><td>1fps</td><td class="sub">75.10</td><td class="sub">76.60</td><td class="sub">80.10</td><td class="sub">81.10</td><td class="sub">77.40</td><td class="sub">71.70</td><td class="sub">77.80</td><td class="sub">61.40</td><td class="sub">69.30</td><td class="sub">55.90</td><td class="avg">72.80</td><td class="sub">41.20</td><td class="sub">32.00</td><td class="sub"><u>46.80</u></td><td class="sub"><b>55.20</b></td><td class="avg"><u>43.80</u></td><td class="sub">40.00</td><td class="sub">31.60</td><td class="sub">34.40</td><td class="sub">52.40</td><td class="avg">36.75</td><td class="ovr">59.33</td></tr>
+          <tr class="ours"><td>+ TimeTraveler</td><td>1fps</td><td class="sub">81.84</td><td class="sub">79.69</td><td class="sub"><u>87.70</u></td><td class="sub"><b>85.58</b></td><td class="sub">76.73</td><td class="sub"><b>90.97</b></td><td class="sub"><b>87.96</b></td><td class="sub">69.11</td><td class="sub">75.28</td><td class="sub"><b>59.04</b></td><td class="avg"><u>80.16</u><span class="up">+7.36</span></td><td class="sub"><u>43.20</u></td><td class="sub">26.40</td><td class="sub">44.00</td><td class="sub">49.20</td><td class="avg">40.70<span class="dn">−3.10</span></td><td class="sub">44.40</td><td class="sub"><u>41.60</u></td><td class="sub"><u>48.00</u></td><td class="sub"><b>62.90</b></td><td class="avg"><b>49.20</b><span class="up">+12.45</span></td><td class="ovr"><u>64.51</u><span class="up">+5.18</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tbl-note"><b>Bold</b> and <u>underline</u> mark the best and second best among open-source models, as in the paper. Gray rows are human and proprietary references. <span class="up-legend">+x.xx</span> is the change from the same backbone without TimeTraveler.</p>
+  </section>
+
+  <section id="analysis" class="wrap">
+    <h2>Why it works</h2>
+    <div class="prose">
+      <p>Each piece earns its place. All numbers below use Qwen3-VL-8B as the answer model unless noted.</p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h4>Structured text keeps the details</h4>
+        <p class="take">At a similar memory budget, the structured dictionary beats visual prototypes by <b>4.12</b> and flat captions by <b>2.23</b> on OVO-Bench overall.</p>
+        <div class="scroll">
+          <table class="mini">
+            <thead><tr><th>Memory</th><th>Tokens</th><th>Real-time</th><th>Backward</th><th>Forward</th><th>Overall</th></tr></thead>
+            <tbody>
+              <tr class="base"><td>No memory</td><td>–</td><td>63.24</td><td>43.44</td><td>48.42</td><td>51.70</td></tr>
+              <tr><td>Visual prototypes</td><td>203.11</td><td>66.19</td><td>44.16</td><td><b>51.36</b></td><td>53.90</td></tr>
+              <tr><td>Flat text</td><td>236.60</td><td>70.98</td><td>48.57</td><td>47.83</td><td>55.79</td></tr>
+              <tr class="ours"><td>Time Dictionary</td><td>245.23</td><td><b>73.00</b></td><td><b>51.66</b></td><td>49.41</td><td><b>58.02</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="src">OVO-Bench. Tokens: average memory tokens passed to the answer model.</div>
+      </div>
+
+      <div class="card">
+        <h4>Planning beats always looking back</h4>
+        <p class="take">Even on Backward Tracing, sending every question to the past (50.71) or routing at random (50.28) trails the planner (<b>51.66</b>). Some backward questions still need the current scene.</p>
+        <div class="scroll">
+          <table class="mini">
+            <thead><tr><th>Setting</th><th>EPM</th><th>HLD</th><th>ASI</th><th>Avg.</th></tr></thead>
+            <tbody>
+              <tr class="base"><td>No memory</td><td>52.53</td><td>10.22</td><td>67.57</td><td>43.44</td></tr>
+              <tr><td>All to past</td><td>57.91</td><td><b>25.81</b></td><td>67.57</td><td>50.71</td></tr>
+              <tr><td>Random routing</td><td>57.94</td><td>25.13</td><td>66.52</td><td>50.28</td></tr>
+              <tr class="ours"><td>Our planner</td><td><b>59.26</b></td><td>25.27</td><td><b>69.59</b></td><td><b>51.66</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="src">OVO-Bench Backward Tracing. EPM: episodic memory, HLD: hallucination detection, ASI: action sequence identification.</div>
+      </div>
+
+      <div class="card">
+        <h4>A small gate decides when to speak</h4>
+        <p class="take">Letting the 8B answer model decide when to respond hurts Qwen3-VL (52.40 → 45.20). A 2B gate that sees only the current caption and the question lifts it to <b>62.90</b>.</p>
+        <div class="scroll">
+          <table class="mini">
+            <thead><tr><th>Setting</th><th>Qwen3-VL-8B</th><th>InternVL3.5-8B</th></tr></thead>
+            <tbody>
+              <tr class="base"><td>Baseline</td><td>52.40</td><td>40.00</td></tr>
+              <tr><td>+ Time Dictionary, no gate</td><td>45.20</td><td>41.20</td></tr>
+              <tr class="ours"><td>+ Time Dictionary, with gate</td><td><b>62.90</b></td><td><b>53.23</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="src">StreamingBench Proactive Output: the question comes before the event, and the model must answer at the right moment.</div>
+      </div>
+
+      <div class="card chart-card">
+        <h4>The answers really use the captions</h4>
+        <p class="take">Swap a share ρ of the captions for ones from unrelated videos and accuracy falls steadily, ending at <b>50.27</b>, below the no-memory baseline.</p>
+        <div class="chart" id="noiseChart"></div>
+        <div class="src">OVO-Bench overall. Hover a point for the exact value.</div>
+      </div>
+
+      <div class="card chart-card" style="grid-column: 1 / -1;">
+        <h4>Real time, with little extra wait</h4>
+        <p class="take">Recording costs <b>637.51 ms</b> per second of video, inside the real-time budget. A question then takes 557.62 to 578.25 ms, only <b>10 to 31 ms</b> more than a visual-only answer.</p>
+        <div class="legend">
+          <span><i style="background:#c3ccd8"></i>Answer model</span>
+          <span><i style="background:#a40f16"></i><i style="background:#1d58a7;margin-left:-4px"></i><i style="background:#ff5f05;margin-left:-4px"></i>Planning, plus retrieval or gating</span>
+          <span><i style="background:#97a6bb"></i>Recording (decode, caption, embed)</span>
+        </div>
+        <div class="chart" id="latencyChart"></div>
+        <div class="src">Measured on one NVIDIA RTX PRO 6000 Blackwell GPU. Recording and answering run asynchronously, so they are shown separately. Future assumes one polling step; each extra step adds 7.49 ms. Hover a bar for the breakdown.</div>
+      </div>
+    </div>
+
+    <h3 class="sub-title">Lookback, step by step</h3>
+    <figure>
+      <img src="static/images/qualitative.jpg" alt="Lookback similarity over past captions rises toward the question time and peaks at the anatomy diagram frame. The retrieved caption keeps the on-screen text FRONT RAISE and the red highlights on the deltoids.">
+      <figcaption>For the front-raise question, similarity between the question and past captions climbs toward the relevant moment and peaks right before t<sub>q</sub>. The retrieved entry keeps the on-screen text, the layout, and which muscles are highlighted.</figcaption>
+    </figure>
+  </section>
+
+  <section id="bibtex" class="wrap">
+    <h2>BibTeX</h2>
+    <div class="bib">
+      <button class="copy-btn" type="button" id="copyBib">Copy</button>
+<pre id="bibText">@inproceedings{kim2026timetraveler,
+  title     = {TimeTraveler: Temporal Strategy Planning with Time Dictionary
+               for Streaming Video Understanding},
+  author    = {Kim, Minkuk and Kim, Junho and Kim, Seong Tae},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2026}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="insts">
+      <a class="inst khu" href="https://github.com/ailab-kyunghee" style="text-decoration:none"><i class="dot"></i>Augmented Intelligence Lab, Kyung Hee University</a>
+      <span class="inst uiuc"><i class="dot"></i>University of Illinois Urbana-Champaign</span>
+    </div>
+    <p>Supported in part by NRF grants funded by the Korea Government (MSIT) (RS-2024-00334321) and the Ministry of Education (G-LAMP, RS-2025-25442355), and by IITP grants funded by the Korea Government (MSIT) (IITP-2026-RS-2023-00258649, RS-2022-II220078, RS-2025-02653113).</p>
+    <p>TimeTraveler, NeurIPS 2026.</p>
+  </div>
+</footer>
+
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+  /* ---------- hero: dictionary entries along the timeline ---------- */
+  (function () {
+    var NS = 'http://www.w3.org/2000/svg';
+    var past = document.getElementById('pastEntries');
+    for (var i = 0; i < 17; i++) {
+      var r = document.createElementNS(NS, 'rect');
+      var hit = (i === 8);
+      r.setAttribute('class', 'ent');
+      r.setAttribute('x', 26 + 22 * i); r.setAttribute('y', 151);
+      r.setAttribute('width', 8); r.setAttribute('height', 18); r.setAttribute('rx', 2);
+      r.setAttribute('fill', hit ? '#a40f16' : '#f8ebeb');
+      r.setAttribute('stroke', '#a40f16'); r.setAttribute('stroke-width', 1.5);
+      r.style.animationDelay = (0.15 + 0.045 * i).toFixed(2) + 's';
+      past.appendChild(r);
+    }
+    var fut = document.getElementById('futureEntries');
+    for (var j = 4; j < 5; j++) {
+      var g = document.createElementNS(NS, 'rect');
+      g.setAttribute('x', 520 + 27 * j); g.setAttribute('y', 151);
+      g.setAttribute('width', 8); g.setAttribute('height', 18); g.setAttribute('rx', 2);
+      g.setAttribute('fill', 'none'); g.setAttribute('stroke', '#ff5f05');
+      g.setAttribute('stroke-width', 1.3); g.setAttribute('stroke-dasharray', '3 2.5');
+      g.setAttribute('opacity', j === 4 ? 1 : 0.6);
+      fut.appendChild(g);
+    }
+  })();
+
+  /* ---------- demo explorer ----------
+     새 케이스 추가법: CASES에 객체를 하나 추가하고, static/images/cases/<id>/ 에 프레임을 넣는다.
+     frames의 after:true 는 질문 시점(t_q) 이후 프레임(회색 처리), hit:true 는 검색된 프레임. */
+  var CASES = [
+    {
+      id: 'soccer', label: 'Logos at the walkout',
+      question: 'Which logos were visible as the players and referees entered the field?',
+      frames: [
+        { src: 'static/images/cases/soccer/t1.jpg', t: 't<sub>1</sub>', hit: true },
+        { src: 'static/images/cases/soccer/t2.jpg', t: 't<sub>2</sub>' },
+        { src: 'static/images/cases/soccer/t3.jpg', t: 't<sub>3</sub>' },
+        { src: 'static/images/cases/soccer/t4.jpg', t: 't<sub>4</sub>' },
+        { src: 'static/images/cases/soccer/t5.jpg', t: 't<sub>5</sub>' },
+        { src: 'static/images/cases/soccer/t6.jpg', t: 't<sub>6</sub>', after: true },
+        { src: 'static/images/cases/soccer/t7.jpg', t: 't<sub>7</sub>', after: true },
+        { src: 'static/images/cases/soccer/t8.jpg', t: 't<sub>8</sub>', after: true }
+      ],
+      entryAt: 't<sub>1</sub>',
+      fields: [
+        ['Scene', 'Stadium'],
+        ['People', 'Referees, Players, Crowd'],
+        ['Actions', 'Player Walkout'],
+        ['Text', '<mark>AeroMexico, LALIGA, NUN…</mark>']
+      ],
+      excerpt: 'Excerpt of the entry, as shown in the paper.',
+      verdict: 'The logos were on screen during the walkout at t<sub>1</sub>, well before the question. Compressed visual memories tend to blur small text like this; the <b>Text</b> field kept it.'
+    },
+    {
+      id: 'kitchen', label: 'Kitchen colors',
+      question: 'What are the colors of the cabinets and the walls in the kitchen?',
+      frames: [
+        { src: 'static/images/cases/kitchen/q-2.jpg', t: 't<sub>q−2</sub>', hit: true },
+        { src: 'static/images/cases/kitchen/q-1.jpg', t: 't<sub>q−1</sub>' },
+        { src: 'static/images/cases/kitchen/q+1.jpg', t: 't<sub>q+1</sub>', after: true },
+        { src: 'static/images/cases/kitchen/q+2.jpg', t: 't<sub>q+2</sub>', after: true },
+        { src: 'static/images/cases/kitchen/q+3.jpg', t: 't<sub>q+3</sub>', after: true }
+      ],
+      entryAt: 't<sub>q−2</sub>',
+      fields: [
+        ['Scene', 'Indoor kitchen'],
+        ['Objects', 'Two stainless steel pots on stove, oil bottle, dish rack with plates and glasses, <mark>white tiled wall, blue cabinet.</mark>'],
+        ['People', '1 man, wearing blue t-shirt, standing at counter, looking down'],
+        ['Actions', 'Man is cooking, gesturing with hand'],
+        ['Text', 'N/A'],
+        ['Spatial', 'Kitchen counter with pots, bowl, ingredients; shelves above with dishes; sink and faucet visible'],
+        ['Atmosphere', 'Bright, modern kitchen'],
+        ['Details', 'Man in blue shirt stands at kitchen …']
+      ],
+      answer: 'White wall, blue cabinet.',
+      verdict: 'At question time the camera is on the pans, so the walls and cabinets are out of view. They were written down at t<sub>q−2</sub>, in the <b>Objects</b> field.'
+    },
+    {
+      id: 'fitness', label: 'Front raise muscles',
+      question: 'What muscle groups are highlighted in red on the left side of the screen during the front raise exercise?',
+      frames: [
+        { src: 'static/images/cases/fitness/q-4.jpg', t: 't<sub>q−4</sub>' },
+        { src: 'static/images/cases/fitness/q-3.jpg', t: 't<sub>q−3</sub>' },
+        { src: 'static/images/cases/fitness/q-2.jpg', t: 't<sub>q−2</sub>' },
+        { src: 'static/images/cases/fitness/q-1.jpg', t: 't<sub>q−1</sub>', hit: true },
+        { src: 'static/images/cases/fitness/q+1.jpg', t: 't<sub>q+1</sub>', after: true }
+      ],
+      entryAt: 't<sub>q−1</sub>',
+      fields: [
+        ['Scene', 'Indoor, textured background'],
+        ['Objects', 'Two 3D human figures with muscle anatomy diagrams, holding dumbbells'],
+        ['People', 'One figure on the left, one on the right …'],
+        ['Actions', 'The figures are standing, performing front raises with dumbbells …'],
+        ['Text', '<mark>FRONT RAISE</mark> (MORE EXTERNALLY…'],
+        ['Spatial', 'The two figures are side-by-side, each in a different pose'],
+        ['Atmosphere', 'Neutral lighting, monochromatic color scheme <mark>with red highlights on deltoids</mark>'],
+        ['Details', '…highlighting <mark>the triceps</mark> and chest muscles.']
+      ],
+      verdict: 'Lookback similarity peaks at t<sub>q−1</sub>, the anatomy diagram right before the question. Its entry kept the on-screen label and which muscles were highlighted in red.'
+    }
+  ];
+
+  var $id = function (x) { return document.getElementById(x); };
+  var curCase = CASES[0];
+
+  function renderCase() {
+    $id('caseRow').innerHTML = CASES.map(function (c) {
+      return '<button class="mtab' + (c.id === curCase.id ? ' active' : '') + '" data-c="' + c.id + '" type="button">' + c.label + '</button>';
+    }).join('');
+    $id('qText').textContent = curCase.question;
+
+    var html = '', qPlaced = false;
+    curCase.frames.forEach(function (f) {
+      if (f.after && !qPlaced) {
+        html += '<div class="qline"><span class="bar"></span><span class="t">t<sub>q</sub></span></div>';
+        qPlaced = true;
+      }
+      var cls = 'fr' + (f.after ? ' unseen' : '') + (f.hit ? ' hit' : '');
+      html += '<div class="' + cls + '">' + (f.hit ? '<span class="tag">retrieved</span>' : '') +
+        '<img src="' + f.src + '" alt="frame at ' + f.t.replace(/<[^>]+>/g, '') + '" loading="lazy"><div class="t">' + f.t + '</div></div>';
+    });
+    $id('stream').innerHTML = html;
+
+    $id('entry').innerHTML = '<div class="eh">Time Dictionary entry at <span>' + curCase.entryAt + '</span></div><dl>' +
+      curCase.fields.map(function (kv) { return '<dt>' + kv[0] + '</dt><dd>' + kv[1] + '</dd>'; }).join('') + '</dl>' +
+      (curCase.excerpt ? '<div class="excerpt">' + curCase.excerpt + '</div>' : '');
+
+    $id('verdict').innerHTML = (curCase.answer ? '<span class="ans">Answer: ' + curCase.answer + '</span> ' : '') + curCase.verdict;
+  }
+  $id('caseRow').addEventListener('click', function (e) {
+    var b = e.target.closest('.mtab'); if (!b) return;
+    curCase = CASES.find(function (c) { return c.id === b.dataset.c; });
+    renderCase();
+  });
+  renderCase();
+
+  /* ---------- results tables: summary / all subtasks ---------- */
+  document.querySelectorAll('.toggle[data-table]').forEach(function (btn) {
+    var table = $id(btn.dataset.table);
+    function apply(full) {
+      table.classList.toggle('compact', !full);
+      table.classList.toggle('full', full);
+      table.querySelectorAll('th.grp').forEach(function (th) {
+        th.colSpan = full ? th.dataset.full : th.dataset.compact;
+        th.textContent = full ? th.dataset.long : th.dataset.short;
+      });
+      table.querySelectorAll('tr.group td').forEach(function (td) {
+        td.colSpan = full ? td.dataset.full : td.dataset.compact;
+      });
+      btn.textContent = full ? 'Show summary only' : 'Show all subtasks';
+    }
+    apply(false);
+    btn.addEventListener('click', function () { apply(!table.classList.contains('full')); });
+  });
+
+  /* ---------- tooltip ---------- */
+  var tip = $id('tip');
+  function showTip(e) {
+    var t = e.target.closest && e.target.closest('[data-tip]');
+    if (!t) { tip.classList.remove('show'); return; }
+    tip.innerHTML = t.getAttribute('data-tip');
+    tip.classList.add('show');
+    var x = e.clientX + 14, y = e.clientY + 14;
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - 14;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  document.addEventListener('mousemove', showTip);
+  document.addEventListener('pointerdown', showTip);
+  window.addEventListener('scroll', function () { tip.classList.remove('show'); }, { passive: true });
+
+  /* ---------- chart: caption noise injection ---------- */
+  (function () {
+    var pts = [[0, 58.02], [0.25, 56.45], [0.5, 55.30], [0.75, 53.16], [1.0, 50.27]];
+    var X = function (r) { return 48 + 380 * r; };
+    var Y = function (v) { return 18 + (60 - v) * (178 / 12); };
+    var s = '<svg viewBox="0 0 440 244" role="img" aria-label="OVO-Bench overall accuracy versus share of corrupted captions: 58.02, 56.45, 55.30, 53.16, 50.27 at 0, 0.25, 0.5, 0.75, 1.0. No-memory baseline is 51.70.">';
+    [48, 52, 56, 60].forEach(function (v) {
+      s += '<line x1="48" x2="428" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="#ecebe4" stroke-width="1"/>';
+      s += '<text x="40" y="' + (Y(v) + 4) + '" text-anchor="end" font-size="11.5" fill="#8590a0">' + v + '</text>';
+    });
+    s += '<line x1="48" x2="428" y1="' + Y(51.70) + '" y2="' + Y(51.70) + '" stroke="#8590a0" stroke-width="1.5" stroke-dasharray="5 4"/>';
+    s += '<text x="52" y="' + (Y(51.70) - 6) + '" font-size="11.5" fill="#4b586c">no memory, 51.70</text>';
+    s += '<line x1="48" x2="428" y1="' + Y(58.02) + '" y2="' + Y(58.02) + '" stroke="#8590a0" stroke-width="1.5" stroke-dasharray="5 4"/>';
+    s += '<text x="428" y="' + (Y(58.02) - 6) + '" text-anchor="end" font-size="11.5" fill="#4b586c">clean dictionary, 58.02</text>';
+    s += '<polyline fill="none" stroke="#13294b" stroke-width="2" points="' + pts.map(function (p) { return X(p[0]) + ',' + Y(p[1]); }).join(' ') + '"/>';
+    pts.forEach(function (p) {
+      var d = (p[1] - 58.02).toFixed(2);
+      var tipTxt = '<b>ρ = ' + p[0] + '</b><br>Overall ' + p[1].toFixed(2) + (p[0] ? ' (' + d.replace('-', '−') + ')' : ' (clean)');
+      s += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="5.5" fill="#ffffff" stroke="#ffffff" stroke-width="4"/>';
+      s += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="4.5" fill="#ffffff" stroke="#13294b" stroke-width="2"/>';
+      s += '<circle class="hit-target" cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="14" fill="transparent" data-tip="' + tipTxt.replace(/"/g, '&quot;') + '"/>';
+    });
+    s += '<text x="' + (X(1) - 4) + '" y="' + (Y(50.27) + 20) + '" text-anchor="end" font-size="12" font-weight="600" fill="#13294b">50.27</text>';
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (r) {
+      s += '<text x="' + X(r) + '" y="216" text-anchor="middle" font-size="11.5" fill="#8590a0">' + (r === 1 ? '1.0' : r) + '</text>';
+    });
+    s += '<text x="238" y="238" text-anchor="middle" font-size="12" fill="#4b586c">share of captions replaced (ρ)</text>';
+    s += '</svg>';
+    $id('noiseChart').innerHTML = s;
+  })();
+
+  /* ---------- chart: asynchronous latency ---------- */
+  (function () {
+    var COL = { past: '#a40f16', current: '#1d58a7', future: '#ff5f05', qa: '#c3ccd8', rec: '#97a6bb' };
+    var X0 = 150, SC = 0.7;           // 1000 ms -> 700 px
+    var rows = [
+      { y: 26, label: 'Recording', segs: [['rec', 637.51]], total: 637.51,
+        tip: '<b>Recording, per 1 s of video</b><br>Video decode 15.72 ms<br>Captioner 605.82 ms<br>Embedder 15.97 ms<br>Total 637.51 ms' },
+      { y: 90, label: 'Visual-only', segs: [['qa', 547.22]], total: 547.22,
+        tip: '<b>Visual-only baseline</b><br>Answer 547.22 ms' },
+      { y: 122, label: 'Past', segs: [['past', 25.22], ['qa', 553.03]], total: 578.25, extra: 31.03,
+        tip: '<b>Past question</b><br>Planning 9.60 ms<br>Retrieval 15.62 ms<br>Answer, 8 captions 553.03 ms<br>Total 578.25 ms' },
+      { y: 154, label: 'Current', segs: [['current', 9.60], ['qa', 548.02]], total: 557.62, extra: 10.40,
+        tip: '<b>Current question</b><br>Planning 9.60 ms<br>Answer, 1 caption 548.02 ms<br>Total 557.62 ms' },
+      { y: 186, label: 'Future', segs: [['future', 17.09], ['qa', 548.02]], total: 565.11, extra: 17.89,
+        tip: '<b>Future question, 1 poll</b><br>Planning 9.60 ms<br>Gating 7.49 ms<br>Answer, 1 caption 548.02 ms<br>Total 565.11 ms' }
+    ];
+    var H = 22, s = '<svg viewBox="0 0 900 248" role="img" aria-label="Latency. Recording takes 637.51 ms per second of video, under a 1 second budget. Per question: visual-only 547.22 ms, past 578.25 ms, current 557.62 ms, future 565.11 ms.">';
+    [0, 250, 500, 750, 1000].forEach(function (v) {
+      var x = X0 + v * SC;
+      s += '<line x1="' + x + '" x2="' + x + '" y1="20" y2="54" stroke="#ecebe4" stroke-width="1"/>';
+      s += '<line x1="' + x + '" x2="' + x + '" y1="84" y2="216" stroke="#ecebe4" stroke-width="1"/>';
+      s += '<text x="' + x + '" y="234" text-anchor="middle" font-size="11.5" fill="#8590a0">' + v + (v === 1000 ? ' ms' : '') + '</text>';
+    });
+    s += '<text x="0" y="14" font-size="11.5" font-weight="600" fill="#8590a0" letter-spacing="0.06em">ALWAYS ON, PER SECOND OF VIDEO</text>';
+    s += '<text x="0" y="78" font-size="11.5" font-weight="600" fill="#8590a0" letter-spacing="0.06em">ON DEMAND, PER QUESTION</text>';
+    var bx = X0 + 1000 * SC;
+    s += '<line x1="' + bx + '" x2="' + bx + '" y1="20" y2="54" stroke="#13294b" stroke-width="1.5" stroke-dasharray="4 3"/>';
+    s += '<text x="' + (bx - 6) + '" y="14" text-anchor="end" font-size="11.5" fill="#4b586c">1 s real-time budget</text>';
+    rows.forEach(function (r) {
+      var x = X0;
+      s += '<text x="' + (X0 - 12) + '" y="' + (r.y + 15) + '" text-anchor="end" font-size="13" fill="#13294b">' + r.label + '</text>';
+      r.segs.forEach(function (sg, i) {
+        var w = sg[1] * SC, last = (i === r.segs.length - 1);
+        var gap = last ? 0 : 2;
+        if (last) {
+          var rr = 4;
+          s += '<path d="M' + x + ' ' + r.y + ' h' + (w - rr) + ' a' + rr + ' ' + rr + ' 0 0 1 ' + rr + ' ' + rr + ' v' + (H - 2 * rr) + ' a' + rr + ' ' + rr + ' 0 0 1 -' + rr + ' ' + rr + ' h-' + (w - rr) + ' z" fill="' + COL[sg[0]] + '"/>';
+        } else {
+          s += '<rect x="' + x + '" y="' + r.y + '" width="' + Math.max(w - gap, 2) + '" height="' + H + '" fill="' + COL[sg[0]] + '"/>';
+        }
+        x += w;
+      });
+      s += '<text x="' + (X0 + r.total * SC + 8) + '" y="' + (r.y + 15) + '" font-size="12.5" fill="#13294b" font-weight="600">' + r.total.toFixed(2) + ' ms' +
+        (r.extra ? '<tspan font-weight="400" fill="#4b586c">  (+' + r.extra.toFixed(2) + ')</tspan>' : '') + '</text>';
+      s += '<rect class="hit-target" x="0" y="' + (r.y - 5) + '" width="900" height="' + (H + 10) + '" fill="transparent" data-tip="' + r.tip.replace(/"/g, '&quot;') + '"/>';
+    });
+    s += '<line x1="' + X0 + '" x2="' + X0 + '" y1="20" y2="54" stroke="#13294b" stroke-width="1"/>';
+    s += '<line x1="' + X0 + '" x2="' + X0 + '" y1="84" y2="216" stroke="#13294b" stroke-width="1"/>';
+    s += '</svg>';
+    $id('latencyChart').innerHTML = s;
+  })();
+
+  /* ---------- copy BibTeX ---------- */
+  $id('copyBib').addEventListener('click', function () {
+    var b = this, txt = $id('bibText').textContent;
+    function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta);
+      ta.select(); try { document.execCommand('copy'); done(); } catch (e) {} document.body.removeChild(ta);
+    }
+  });
+</script>
+
+</body>
+</html>

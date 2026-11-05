@@ -115,7 +115,7 @@
   </div>
 
   <div class="btn-row">
-    <a class="btn" href="static/pdf/TimeTraveler_NeurIPS2026.pdf">📄 Paper</a>
+    <span class="btn soon" title="Coming soon">📄 Paper <span class="tag">soon</span></span>
     <span class="btn soon" title="Coming soon">arXiv <span class="tag">soon</span></span>
     <span class="btn soon" title="Coming soon">💻 Code <span class="tag">soon</span></span>
   </div>
@@ -425,15 +425,8 @@
 
   <section id="bibtex" class="wrap">
     <h2>BibTeX</h2>
-    <div class="bib">
-      <button class="copy-btn" type="button" id="copyBib">Copy</button>
-<pre id="bibText">@inproceedings{kim2026timetraveler,
-  title     = {TimeTraveler: Temporal Strategy Planning with Time Dictionary
-               for Streaming Video Understanding},
-  author    = {Kim, Minkuk and Kim, Junho and Kim, Seong Tae},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  year      = {2026}
-}</pre>
+    <div class="prose">
+      <p class="bib-soon">The BibTeX entry will be added once the NeurIPS 2026 proceedings are published.</p>
     </div>
   </section>
 </main>
@@ -708,18 +701,6 @@
     $id('latencyChart').innerHTML = s;
   })();
 
-  /* ---------- copy BibTeX ---------- */
-  $id('copyBib').addEventListener('click', function () {
-    var b = this, txt = $id('bibText').textContent;
-    function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(txt).then(done, function () { fallback(); });
-    } else { fallback(); }
-    function fallback() {
-      var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta);
-      ta.select(); try { document.execCommand('copy'); done(); } catch (e) {} document.body.removeChild(ta);
-    }
-  });
 </script>
 
 </body>

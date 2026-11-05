@@ -369,6 +369,7 @@ table.mini { border-collapse: collapse; width: 100%; font-size: 13px; font-varia
 .tip b { font-weight: 600; }
 
 /* bibtex */
+.bib-soon { text-align: center; color: var(--soft); }
 .bib {
   position: relative; max-width: 760px; margin: 22px auto;
   background: #f1f0ea; border: 1px solid var(--line); border-radius: var(--radius);

@@ -47,60 +47,8 @@
     <span class="title">Temporal Strategy Planning with Time Dictionary for Streaming Video Understanding</span>
   </h1>
 
-  <!-- Where is the evidence? Past / Current / Future on one timeline -->
-  <div class="tline">
-    <svg viewBox="0 0 760 236" role="img" aria-label="A question arrives mid-stream. The planner asks where the evidence is: look back into the past, look at the current scene, or look ahead and wait for the future.">
-      <defs>
-        <marker id="mk-past" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a40f16"></path></marker>
-        <marker id="mk-cur" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1d58a7"></path></marker>
-        <marker id="mk-fut" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ff5f05"></path></marker>
-        <marker id="mk-time" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ff5f05"></path></marker>
-      </defs>
-
-      <!-- planner -->
-      <g class="planner">
-        <text x="450" y="10" text-anchor="middle" font-family="'Public Sans', sans-serif" font-size="12.5" fill="#4b586c">a question arrives at t<tspan font-size="9.5" dy="3">q</tspan></text>
-        <rect x="345" y="20" width="210" height="48" rx="12" fill="#ffffff" stroke="#13294b" stroke-width="2"></rect>
-        <text x="450" y="50" text-anchor="middle" font-family="Spectral, Georgia, serif" font-size="19.5" font-weight="600" fill="#13294b">Where is the evidence?</text>
-      </g>
-
-      <!-- timeline: past (recorded), current, future (not yet observed) -->
-      <line class="axis" x1="20" y1="160" x2="404" y2="160" stroke="#a40f16" stroke-width="3"></line>
-      <line class="now" x1="404" y1="160" x2="496" y2="160" stroke="#1d58a7" stroke-width="3"></line>
-      <line class="now" x1="500" y1="160" x2="742" y2="160" stroke="#ff5f05" stroke-width="2.5" stroke-dasharray="6 6" marker-end="url(#mk-time)"></line>
-
-      <g id="pastEntries"></g>
-      <rect class="now" x="446" y="151" width="8" height="18" rx="2" fill="#eaf0f8" stroke="#1d58a7" stroke-width="1.6"></rect>
-      <g class="now" id="futureEntries"></g>
-
-      <!-- three arms -->
-      <path class="arm a1" d="M 420 68 C 372 120, 258 100, 207 142" fill="none" stroke="#a40f16" stroke-width="2.2" marker-end="url(#mk-past)"></path>
-      <path class="arm a2" d="M 450 68 L 450 142" fill="none" stroke="#1d58a7" stroke-width="2.2" marker-end="url(#mk-cur)"></path>
-      <path class="arm a3" d="M 480 68 C 528 120, 604 100, 628 142" fill="none" stroke="#ff5f05" stroke-width="2.2" marker-end="url(#mk-fut)"></path>
-
-      <!-- labels -->
-      <g class="lbl" font-family="Spectral, Georgia, serif" font-size="21" font-weight="600" text-anchor="middle">
-        <text x="207" y="204" fill="#a40f16">Look back</text>
-        <text x="450" y="204" fill="#1d58a7">Look now</text>
-        <text x="628" y="204" fill="#c84113">Look ahead</text>
-      </g>
-      <g class="lbl" font-family="'Public Sans', sans-serif" font-size="12.5" text-anchor="middle" fill="#4b586c">
-        <text x="207" y="225">recall it from the Time Dictionary</text>
-        <text x="450" y="225">read the current scene</text>
-        <text x="628" y="225">wait until it happens</text>
-      </g>
-    </svg>
-
-    <div class="tline-mobile">
-      <span class="q">Where is the evidence?</span>
-      <span class="down">↓</span>
-      <div class="opts">
-        <span class="o p"><b>Look back</b>past</span>
-        <span class="o c"><b>Look now</b>current</span>
-        <span class="o f"><b>Look ahead</b>future</span>
-      </div>
-    </div>
-  </div>
+  <!-- Concept animation: Record, then look back / look now / look ahead (static/js/concept.js) -->
+  <div class="concept" id="concept"></div>
 
   <p class="subline">A training-free framework for streaming video QA. TimeTraveler writes every observed moment into a Time Dictionary of structured captions, and decides for each question whether to look back into the past, read the current scene, or wait for what comes next.</p>
 
@@ -448,33 +396,6 @@
 <div class="tip" id="tip" role="tooltip"></div>
 
 <script>
-  /* ---------- hero: dictionary entries along the timeline ---------- */
-  (function () {
-    var NS = 'http://www.w3.org/2000/svg';
-    var past = document.getElementById('pastEntries');
-    for (var i = 0; i < 17; i++) {
-      var r = document.createElementNS(NS, 'rect');
-      var hit = (i === 8);
-      r.setAttribute('class', 'ent');
-      r.setAttribute('x', 26 + 22 * i); r.setAttribute('y', 151);
-      r.setAttribute('width', 8); r.setAttribute('height', 18); r.setAttribute('rx', 2);
-      r.setAttribute('fill', hit ? '#a40f16' : '#f8ebeb');
-      r.setAttribute('stroke', '#a40f16'); r.setAttribute('stroke-width', 1.5);
-      r.style.animationDelay = (0.15 + 0.045 * i).toFixed(2) + 's';
-      past.appendChild(r);
-    }
-    var fut = document.getElementById('futureEntries');
-    for (var j = 4; j < 5; j++) {
-      var g = document.createElementNS(NS, 'rect');
-      g.setAttribute('x', 520 + 27 * j); g.setAttribute('y', 151);
-      g.setAttribute('width', 8); g.setAttribute('height', 18); g.setAttribute('rx', 2);
-      g.setAttribute('fill', 'none'); g.setAttribute('stroke', '#ff5f05');
-      g.setAttribute('stroke-width', 1.3); g.setAttribute('stroke-dasharray', '3 2.5');
-      g.setAttribute('opacity', j === 4 ? 1 : 0.6);
-      fut.appendChild(g);
-    }
-  })();
-
   /* ---------- demo explorer ----------
      새 케이스 추가법: CASES에 객체를 하나 추가하고, static/images/cases/<id>/ 에 프레임을 넣는다.
      frames의 after:true 는 질문 시점(t_q) 이후 프레임(회색 처리), hit:true 는 검색된 프레임. */
@@ -706,5 +627,6 @@
 
 </script>
 
+<script src="static/js/concept.js"></script>
 </body>
 </html>

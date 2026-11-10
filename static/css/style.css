@@ -79,7 +79,7 @@ a { color: inherit; }
 .nav-links a:hover { color: var(--ink); }
 
 /* ---------- hero ---------- */
-.hero { padding: 58px 0 30px; text-align: center; }
+.hero { position: relative; padding: 58px 22px 30px; text-align: center; }
 
 .venue {
   display: inline-flex; align-items: center; gap: 8px;
@@ -433,7 +433,7 @@ footer .insts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8p
 }
 
 /* ---------- concept animation (hero) ---------- */
-.concept { margin: 34px auto 4px; max-width: 800px; }
+.concept { margin: 44px auto 4px; max-width: 800px; }
 .concept-stage { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 14px 4px; }
 .concept-stage svg { width: 100%; height: auto; display: block; }
 .concept-bar { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
@@ -464,4 +464,16 @@ footer .insts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8p
   .concept-step { padding: 5px 10px 6px; font-size: 13px; text-align: left; }
   .concept-step .num { margin-right: 5px; }
   .concept-cap { font-size: 14.5px; }
+}
+
+/* ---------- affiliation logos (top right of the hero) ---------- */
+.aff-top { display: flex; align-items: center; justify-content: center; gap: 16px; margin: -26px 0 22px; }
+.aff-top img { display: block; width: auto; }
+.aff-top .crest { height: 40px; }
+.aff-top .ill { height: 30px; }
+.aff-top .rule { width: 1px; height: 32px; background: var(--line); }
+@media (min-width: 900px) {
+  .aff-top { position: absolute; top: 30px; right: 22px; margin: 0; }
+  .aff-top .crest { height: 46px; }
+  .aff-top .ill { height: 34px; }
 }

@@ -48,7 +48,7 @@ body {
 
 h1, h2, h3 { font-family: "Spectral", Georgia, serif; font-weight: 600; line-height: 1.15; margin: 0; }
 a { color: inherit; }
-.wrap { max-width: 1000px; margin: 0 auto; padding: 0 22px; }
+.wrap { max-width: 1000px; margin: 0 auto; padding-left: 22px; padding-right: 22px; }
 
 /* two-tone wordmark: Kyung Hee red into Illini orange, past into future */
 .duo-text {
@@ -155,6 +155,7 @@ sup.u { color: var(--altgeld); font-weight: 600; }
 
 /* ---------- sections ---------- */
 section { padding: 104px 0 8px; scroll-margin-top: 72px; }
+#overview { padding-top: 64px; }
 section h2 { font-size: 29px; margin-bottom: 30px; text-align: center; }
 section h2::after {
   content: ""; display: block; width: 44px; height: 3px; margin: 12px auto 0;

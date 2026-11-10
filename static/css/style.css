@@ -467,13 +467,16 @@ footer .insts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8p
 }
 
 /* ---------- affiliation logos (top right of the hero) ---------- */
-.aff-top { display: flex; align-items: center; justify-content: center; gap: 16px; margin: -26px 0 22px; }
+.aff-top { display: flex; align-items: center; justify-content: center; gap: 18px; margin: -26px 0 22px; }
 .aff-top img { display: block; width: auto; }
-.aff-top .crest { height: 40px; }
+.aff-top .khu { height: 36px; }
 .aff-top .ill { height: 30px; }
+.aff-top .etri { height: 33px; }
 .aff-top .rule { width: 1px; height: 32px; background: var(--line); }
 @media (min-width: 900px) {
   .aff-top { position: absolute; top: 30px; right: 22px; margin: 0; }
-  .aff-top .crest { height: 46px; }
-  .aff-top .ill { height: 34px; }
+  .aff-top .khu { height: 46px; }
+  .aff-top .ill { height: 38px; }
+  .aff-top .etri { height: 42px; }
+  .aff-top .rule { height: 40px; }
 }

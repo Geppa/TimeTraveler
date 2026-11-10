@@ -319,36 +319,39 @@
       </div>
 
       <div class="card">
-        <h4>Planning beats always looking back</h4>
-        <p class="take">Even on Backward Tracing, sending every question to the past (50.43) or routing at random (45.05) trails the planner (<b>51.37</b>). Some backward questions still need the current scene.</p>
+        <h4>Every field earns its place</h4>
+        <p class="take">Remove one group of fields and scores drop. Losing <b>Explicit Text</b> hurts text-heavy questions the most: TR 90.97 &rarr; <b>85.98</b>, OCR 87.25 &rarr; <b>83.22</b>.</p>
         <div class="scroll">
           <table class="mini">
-            <thead><tr><th>Setting</th><th>EPM</th><th>HLD</th><th>ASI</th><th>Avg.</th></tr></thead>
+            <thead><tr><th>Schema</th><th>OCR</th><th>OJR</th><th>TR</th><th>SU</th></tr></thead>
             <tbody>
-              <tr class="base"><td>No memory</td><td>52.53</td><td>10.22</td><td>67.57</td><td>43.44</td></tr>
-              <tr><td>All to past</td><td>57.91</td><td><b>25.81</b></td><td>67.57</td><td>50.43</td></tr>
-              <tr><td>Random routing<sup>†</sup></td><td>52.12</td><td>19.78</td><td>63.24</td><td>45.05</td></tr>
-              <tr class="ours"><td>Our planner</td><td><b>59.26</b></td><td>25.27</td><td><b>69.59</b></td><td><b>51.37</b></td></tr>
+              <tr class="base"><td>No memory</td><td>75.17</td><td>57.07</td><td>71.70</td><td>61.40</td></tr>
+              <tr><td>w/o Background</td><td>83.89</td><td>69.57</td><td>90.97</td><td><b>69.11</b></td></tr>
+              <tr><td>w/o Entity-centric</td><td>83.89</td><td>72.83</td><td><b>91.59</b></td><td>67.07</td></tr>
+              <tr><td>w/o Explicit Text</td><td class="drop">83.22</td><td>73.37</td><td class="drop">85.98</td><td>68.29</td></tr>
+              <tr><td>w/o Contextual sentence</td><td>85.23</td><td>71.74</td><td>89.41</td><td>67.07</td></tr>
+              <tr class="ours"><td>Full schema</td><td><b>87.25</b></td><td><b>74.46</b></td><td>90.97</td><td><b>69.11</b></td></tr>
             </tbody>
           </table>
         </div>
-        <div class="src">OVO-Bench Backward Tracing. EPM: episodic memory, HLD: hallucination detection, ASI: action sequence identification. <sup>†</sup>Average over five runs.</div>
+        <div class="src">OCR and OJR (object recognition) from OVO-Bench, TR (text-rich) and SU (spatial) from StreamingBench. Averaged over these subtasks, the full schema scores 80.86 on OVO-Bench and 81.48 on StreamingBench, the best on both. Entity-centric covers Objects, People, Actions, and Spatial; Explicit Text is the Text field.</div>
       </div>
 
       <div class="card">
-        <h4>A small gate decides when to speak</h4>
-        <p class="take">Letting the 8B answer model decide when to respond hurts Qwen3-VL (52.40 → 45.20). A 2B gate that sees only the current caption and the question lifts it to <b>62.90</b>.</p>
+        <h4>The dictionary alone beats 512 frames</h4>
+        <p class="take">Give the answer model no frames at all and TimeTraveler still scores <b>53.08</b>, above the 512-frame baseline (51.70), with the best Backward accuracy (<b>55.47</b>). Frames matter most for Forward questions about ongoing events.</p>
         <div class="scroll">
           <table class="mini">
-            <thead><tr><th>Setting</th><th>Qwen3-VL-8B</th><th>InternVL3.5-8B</th></tr></thead>
+            <thead><tr><th>Frames</th><th>Time Dict.</th><th>Real-time</th><th>Backward</th><th>Forward</th><th>Overall</th></tr></thead>
             <tbody>
-              <tr class="base"><td>Baseline</td><td>52.40</td><td>40.00</td></tr>
-              <tr><td>+ Time Dictionary, no gate</td><td>45.20</td><td>41.20</td></tr>
-              <tr class="ours"><td>+ Time Dictionary, with gate</td><td><b>62.90</b></td><td><b>53.23</b></td></tr>
+              <tr class="base"><td>512</td><td>&#10007;</td><td>63.24</td><td>43.44</td><td>48.42</td><td>51.70</td></tr>
+              <tr class="ours"><td>512</td><td>&#10003;</td><td>73.28</td><td>51.37</td><td><b>49.41</b></td><td><b>58.02</b></td></tr>
+              <tr><td>1</td><td>&#10003;</td><td><b>77.78</b></td><td>52.14</td><td>41.50</td><td>57.14</td></tr>
+              <tr><td>0</td><td>&#10003;</td><td>68.94</td><td><b>55.47</b></td><td>34.84</td><td>53.08</td></tr>
             </tbody>
           </table>
         </div>
-        <div class="src">StreamingBench Proactive Output: the question comes before the event, and the model must answer at the right moment.</div>
+        <div class="src">OVO-Bench. Frames: visual frames given to the answer model at question time.</div>
       </div>
 
       <div class="card chart-card">
@@ -356,6 +359,30 @@
         <p class="take">Swap a share ρ of the captions for ones from unrelated videos and accuracy falls steadily, ending at <b>50.27</b>, below the no-memory baseline.</p>
         <div class="chart" id="noiseChart"></div>
         <div class="src">OVO-Bench overall. Hover a point for the exact value.</div>
+      </div>
+
+      <div class="card chart-card">
+        <h4>An hour of stream in 4 MB</h4>
+        <p class="take">Each second adds <b>2.78 KB</b> of caption text and embedding. After one hour the Time Dictionary holds <b>4.0 MB</b>, while a full visual KV cache would need 118.65 GB.</p>
+        <div class="chart" id="memChart"></div>
+        <div class="src">Memory after one hour at 1 fps, on a log scale. Prototypes stay small only by folding the whole stream into 32 slots. Retrieval embeddings cover the latest 600 s; captions are kept for the whole stream. Hover a row for more lengths.</div>
+      </div>
+
+      <div class="card">
+        <h4>Ready for faster streams</h4>
+        <p class="take">A 0.8B captioner more than doubles throughput (<b>3.52</b> frames/s) for &minus;0.15 on OVO-Bench. Writing one entry per 8-frame clip reaches <b>8.97</b> frames/s and still adds 4.70 points over the backbone.</p>
+        <div class="scroll">
+          <table class="mini">
+            <thead><tr><th>Captioner</th><th>Frames / entry</th><th>Frames/s</th><th>OVO</th><th>SB</th></tr></thead>
+            <tbody>
+              <tr class="base"><td>No memory</td><td>&ndash;</td><td>&ndash;</td><td>51.70</td><td>59.33</td></tr>
+              <tr class="ours"><td>Qwen3-VL-2B-FP8</td><td>1</td><td>1.65</td><td><b>58.02</b></td><td><b>64.51</b></td></tr>
+              <tr><td>Qwen3.5-0.8B</td><td>1</td><td>3.52</td><td>57.87</td><td>62.92</td></tr>
+              <tr><td>Qwen3-VL-2B-FP8</td><td>8</td><td><b>8.97</b></td><td>56.40</td><td>61.55</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="src">OVO-Bench and StreamingBench overall. Combining the 0.8B captioner with 8-frame clips sustains about 22 fps, and 32-frame clips about 33 fps.</div>
       </div>
 
       <div class="card chart-card" style="grid-column: 1 / -1;">
@@ -575,6 +602,36 @@
     s += '<text x="238" y="238" text-anchor="middle" font-size="12" fill="#4b586c">share of captions replaced (ρ)</text>';
     s += '</svg>';
     $id('noiseChart').innerHTML = s;
+  })();
+
+  /* ---------- chart: memory after one hour (log scale) ---------- */
+  (function () {
+    var rows = [
+      { label: 'Visual KV cache', mb: 118.65 * 1024, txt: '118.65 GB', tip: '<b>Visual full KV cache</b><br>33.75 MB per frame<br>1 min 1.98 GB<br>10 min 19.78 GB<br>1 hour 118.65 GB' },
+      { label: 'Visual hidden state', mb: 6.59 * 1024, txt: '6.59 GB', tip: '<b>Visual hidden state</b><br>1.88 MB per frame<br>1 min 112.5 MB<br>10 min 1.10 GB<br>1 hour 6.59 GB' },
+      { label: 'Visual prototypes', mb: 1.6, txt: '1.6 MB', tip: '<b>Visual prototypes (K = 32)</b><br>Fixed 1.6 MB at any length,<br>by folding the stream into 32 slots' },
+      { label: 'Time Dictionary', mb: 4.0, txt: '4.0 MB', ours: true, tip: '<b>Time Dictionary</b><br>2.78 KB per frame<br>1 min 167 KB<br>10 min 1.6 MB<br>1 hour 4.0 MB' }
+    ];
+    var X0 = 142, X1 = 426, LMAX = 5.4;
+    var X = function (mb) { return X0 + (X1 - X0) * Math.log10(mb) / LMAX; };
+    var s = '<svg viewBox="0 0 440 214" role="img" aria-label="Memory after one hour of streaming at 1 fps, log scale. Visual KV cache 118.65 GB, visual hidden state 6.59 GB, visual prototypes 1.6 MB, Time Dictionary 4.0 MB.">';
+    [[1, '1 MB'], [10, '10 MB'], [100, '100 MB'], [1024, '1 GB'], [10240, '10 GB'], [102400, '100 GB']].forEach(function (t) {
+      s += '<line x1="' + X(t[0]) + '" x2="' + X(t[0]) + '" y1="14" y2="178" stroke="#ecebe4" stroke-width="1"/>';
+      s += '<text x="' + X(t[0]) + '" y="196" text-anchor="middle" font-size="11.5" fill="#8590a0">' + t[1] + '</text>';
+    });
+    rows.forEach(function (r, i) {
+      var y = 34 + i * 40, x = X(r.mb), col = r.ours ? '#13294b' : '#97a6bb';
+      s += '<text x="' + (X0 - 12) + '" y="' + (y + 4.5) + '" text-anchor="end" font-size="13" fill="#13294b"' + (r.ours ? ' font-weight="600"' : '') + '>' + r.label + '</text>';
+      s += '<line x1="' + X0 + '" x2="' + x + '" y1="' + y + '" y2="' + y + '" stroke="' + col + '" stroke-width="' + (r.ours ? 3 : 2) + '" stroke-linecap="round"/>';
+      s += '<circle cx="' + x + '" cy="' + y + '" r="6.5" fill="#ffffff" stroke="#ffffff" stroke-width="3"/>';
+      s += '<circle cx="' + x + '" cy="' + y + '" r="5.5" fill="' + (r.ours ? '#13294b' : '#ffffff') + '" stroke="' + col + '" stroke-width="2"/>';
+      var right = x < 330;
+      s += '<text x="' + (right ? x + 12 : x - 12) + '" y="' + (y + 4.5) + '" text-anchor="' + (right ? 'start' : 'end') + '" font-size="12.5" font-weight="600" fill="#13294b" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">' + r.txt + '</text>';
+      s += '<rect class="hit-target" x="0" y="' + (y - 18) + '" width="440" height="36" fill="transparent" data-tip="' + r.tip.replace(/"/g, '&quot;') + '"/>';
+    });
+    s += '<line x1="' + X0 + '" x2="' + X0 + '" y1="14" y2="178" stroke="#13294b" stroke-width="1"/>';
+    s += '</svg>';
+    $id('memChart').innerHTML = s;
   })();
 
   /* ---------- chart: asynchronous latency ---------- */

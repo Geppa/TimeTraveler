@@ -350,6 +350,7 @@ table.mini { border-collapse: collapse; width: 100%; font-size: 13px; font-varia
 .mini tbody tr:last-child td { border-bottom: none; }
 .mini tr.ours td { background: var(--ours-tint); font-weight: 600; }
 .mini tr.base td { color: var(--soft); }
+.mini td.drop { color: var(--past); font-weight: 600; }
 .mini tr.sep td { border-top: 1.5px solid var(--line); }
 .card .src { margin-top: 8px; font-size: 12px; color: var(--faint); }
 

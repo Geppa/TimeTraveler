@@ -481,3 +481,8 @@ footer .insts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8p
   .aff-top .etri { height: 42px; }
   .aff-top .rule { height: 40px; }
 }
+
+/* ---------- poster ---------- */
+.poster-link { display: block; max-width: 940px; margin: 26px auto 14px; }
+.poster-link img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); padding: 8px; }
+.poster-actions { text-align: center; margin-bottom: 8px; }
